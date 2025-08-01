@@ -1,0 +1,40 @@
+const express = require('express');
+const cors = require('cors');
+const { Pool } = require('pg');
+require('dotenv').config();
+const path = require('path');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../public')));
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.LOCAL === 'false' ? { rejectUnauthorized: false } : false
+});
+
+app.post('/feedback', async (req, res) => {
+  const { name, message } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO feedback (name, message) VALUES ($1, $2) RETURNING *',
+      [name, message]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/feedback', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM feedback');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
